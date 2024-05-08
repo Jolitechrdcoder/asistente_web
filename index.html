@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perla</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+    }
+    input[type="text"] {
+        padding: 10px;
+        font-size: 16px;
+        margin-bottom: 20px;
+        width: 80%;
+    }
+    button {
+        padding: 10px 20px;
+        font-size: 16px;
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+    }
+    .chat-container {
+        max-width: 600px;
+        margin: 0 auto;
+        text-align: left;
+    }
+    .user-message {
+        background-color: #f1f1f1;
+        border-radius: 5px;
+        padding: 10px;
+        margin-bottom: 10px;
+        display: inline-block;
+    }
+    .bot-message {
+        background-color: #007bff;
+        color: #fff;
+        border-radius: 5px;
+        padding: 10px;
+        margin-bottom: 10px;
+        display: inline-block;
+    }
+</style>
+</head>
+<body>
+<h1>Perla_web</h1>
+<div class="chat-container">
+    <div id="chat"></div>
+    <input type="text" id="texto" placeholder="Escribe aquí...">
+    <button onclick="enviarMensaje()">Enviar</button>
+</div>
+<div id="player"></div>
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<script>
+// Definimos un objeto para almacenar el nombre del usuario
+var usuario = {
+    nombre: "",
+    modoMusica: false // Modo de escuchar música desactivado por defecto
+};
+
+function enviarMensaje() {
+    var userInput = document.getElementById("texto").value;
+    mostrarMensajeUsuario(userInput);
+    procesarRespuesta(userInput);
+    document.getElementById("texto").value = "";
+}
+
+function mostrarMensajeUsuario(message) {
+    var chatContainer = document.getElementById("chat");
+    var userMessageElement = document.createElement("div");
+    userMessageElement.classList.add("user-message");
+    userMessageElement.innerText = "Tú: " + message;
+    chatContainer.appendChild(userMessageElement);
+}
+
+function mostrarMensajeBot(message) {
+    var chatContainer = document.getElementById("chat");
+    var botMessageElement = document.createElement("div");
+    botMessageElement.classList.add("bot-message");
+    botMessageElement.innerHTML = "Perla: " + message;
+    chatContainer.appendChild(botMessageElement);
+    leerTexto(message);
+}
+
+function procesarRespuesta(message) {
+    if (usuario.modoMusica) {
+        // Si el usuario está en modo música, procesa la solicitud para reproducir la canción
+        reproducirMusica(message);
+    } else {
+        // Si no está en modo música, procesa el mensaje como de costumbre
+        if (!usuario.nombre) {
+            // Si no lo sabe, establecemos el nombre del usuario y respondemos
+            usuario.nombre = message;
+            var respuesta = "¡Hola, " + usuario.nombre + "! Soy Perla, tu asistente personal. ¿En qué puedo ayudarte?";
+            mostrarMensajeBot(respuesta);
+        } else {
+            // Si ya conoce el nombre del usuario, intenta responder a la pregunta
+            var respuesta = generarRespuesta(message);
+            if (respuesta) {
+                // Si el chatbot puede generar una respuesta, la muestra
+                mostrarMensajeBot(respuesta);
+            } else {
+                // Si no puede responder, busca en YouTube o activa el modo de escuchar música
+                if (message.toLowerCase().includes("quiero escuchar musica")) {
+                    usuario.modoMusica = true;
+                    mostrarMensajeBot("¿Qué canción o artista te gustaría escuchar?");
+                } else {
+                    buscarEnYouTube(message);
+                }
+            }
+        }
+    }
+}
+
+function generarRespuesta(pregunta) {
+    // Aquí puedes agregar lógica para generar respuestas basadas en la pregunta
+    // Por ahora, simplemente proporcionamos una respuesta predeterminada
+    var respuesta;
+    switch (pregunta.toLowerCase()) {
+        case "como estas":
+            respuesta = "Estoy bien, gracias por preguntar.";
+            break;
+        case "cual es mi nombre":
+            respuesta = "Tu nombre es " + usuario.nombre + ".";
+            break;
+        case "enciende luz":
+            respuesta = "ok";
+            break;
+        case "apaga luz":
+            respuesta = "ok";
+            break;
+        case "te gusto":
+            respuesta = "no ando en sentimiento manito";
+            break;
+        default:
+            respuesta = null; // No podemos responder a esta pregunta
+            break;
+    }
+    return respuesta;
+}
+
+function buscarEnYouTube(consulta) {
+    // Construimos la URL de búsqueda en YouTube
+    var url = "https://www.youtube.com/results?search_query=" + encodeURIComponent(consulta);
+
+    // Creamos un objeto de reproductor de YouTube
+    var player = new YT.Player('player', {
+        height: '360',
+        width: '640',
+        videoId: '', // Vacío inicialmente
+        events: {
+            'onReady': function(event) {
+                // Cuando el reproductor esté listo, buscamos el primer video y lo cargamos
+                buscarPrimerVideo(url, player);
+            }
+        }
+    });
+}
+
+function buscarPrimerVideo(url, player) {
+    // Realizamos una solicitud AJAX para obtener el HTML de la página de resultados de búsqueda de YouTube
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4 && xhr.status == 200) {
+            // Creamos un elemento div para almacenar el HTML de la respuesta
+            var div = document.createElement('div');
+            div.innerHTML = xhr.responseText;
+
+            // Obtenemos el enlace del primer video de los resultados
+            var firstVideoLink = div.querySelector('a.yt-simple-endpoint.style-scope.ytd-video-renderer');
+            if (firstVideoLink) {
+                // Si encontramos un enlace, obtenemos el ID del video
+                var videoId = firstVideoLink.getAttribute('href').match(/watch\?v=([^\&\?\/]+)/)[1];
+                // Cargamos el video en el reproductor
+                player.loadVideoById(videoId);
+            } else {
+                // Si no se encontró ningún enlace de video, mostramos un mensaje de error
+                mostrarMensajeBot("No se encontraron resultados de video para la consulta: " + consulta);
+            }
+        }
+    };
+    xhr.open("GET", url, true);
+    xhr.send();
+}
+
+
+function leerTexto(texto) {
+    if ('speechSynthesis' in window) {
+        var speech = new SpeechSynthesisUtterance();
+        speech.text = texto;
+        speech.lang = 'es-ES'; // Cambia a la voz que prefieras
+        speech.volume = 1;
+        speech.rate = 1;
+        speech.pitch = 1;
+
+        window.speechSynthesis.speak(speech);
+    } else {
+        alert("Lo siento, tu navegador no soporta la síntesis de voz.");
+    }
+}
+
+function reproducirMusica(cancion) {
+    // Cambiamos el texto a minúsculas y eliminamos los acentos
+    var consulta = cancion.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    // Buscamos la canción en YouTube
+    // En este ejemplo, simplemente proporcionamos un enlace de ejemplo
+    var url = "https://www.youtube.com/results?search_query=" + encodeURIComponent(consulta);
+    // Abrimos el enlace en una nueva ventana
+    window.open(url, "_blank");
+    // Desactivamos el modo de escuchar música
+    usuario.modoMusica = false;
+    // Mostramos un mensaje de confirmación
+    mostrarMensajeBot("Buscando " + cancion + " en YouTube...");
+}
+</script>
+
+</body>
+</html>
